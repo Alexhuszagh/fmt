@@ -652,7 +652,7 @@ TEST(UtilTest, CountDigits) {
 #ifdef _WIN32
 TEST(UtilTest, UTF16ToUTF8) {
   std::string s = "ёжик";
-  fmt::internal::UTF16ToUTF8 u(L"\x0451\x0436\x0438\x043A");
+  fmt::internal::utf16_to_utf8 u(L"\x0451\x0436\x0438\x043A");
   EXPECT_EQ(s, u.str());
   EXPECT_EQ(s.size(), u.size());
 }
@@ -681,7 +681,7 @@ void check_utf_conversion_error(
 }
 
 TEST(UtilTest, UTF16ToUTF8Error) {
-  check_utf_conversion_error<fmt::internal::UTF16ToUTF8, wchar_t>(
+  check_utf_conversion_error<fmt::internal::utf16_to_utf8, wchar_t>(
       "cannot convert string from UTF-16 to UTF-8");
 }
 
@@ -693,7 +693,7 @@ TEST(UtilTest, UTF8ToUTF16Error) {
 }
 
 TEST(UtilTest, UTF16ToUTF8Convert) {
-  fmt::internal::UTF16ToUTF8 u;
+  fmt::internal::utf16_to_utf8 u;
   EXPECT_EQ(ERROR_INVALID_PARAMETER, u.convert(fmt::wstring_view(0, 0)));
   EXPECT_EQ(ERROR_INVALID_PARAMETER,
             u.convert(fmt::wstring_view(L"foo", INT_MAX + 1u)));
@@ -806,15 +806,15 @@ TEST(UtilTest, ReportWindowsError) {
 enum TestEnum2 {};
 
 TEST(UtilTest, ConvertToInt) {
-  EXPECT_TRUE(fmt::internal::ConvertToInt<char>::enable_conversion);
-  EXPECT_FALSE(fmt::internal::ConvertToInt<const char *>::enable_conversion);
-  EXPECT_TRUE(fmt::internal::ConvertToInt<TestEnum2>::value);
+  EXPECT_TRUE(fmt::internal::convert_to_int<char>::enable_conversion);
+  EXPECT_FALSE(fmt::internal::convert_to_int<const char *>::enable_conversion);
+  EXPECT_TRUE(fmt::internal::convert_to_int<TestEnum2>::value);
 }
 
 #if FMT_USE_ENUM_BASE
 enum TestEnum : char {TestValue};
 TEST(UtilTest, IsEnumConvertibleToInt) {
-  EXPECT_TRUE(fmt::internal::ConvertToInt<TestEnum>::enable_conversion);
+  EXPECT_TRUE(fmt::internal::convert_to_int<TestEnum>::enable_conversion);
 }
 #endif
 

@@ -555,7 +555,7 @@ inline typename make_unsigned<Int>::type to_unsigned(Int value) {
   return static_cast<typename make_unsigned<Int>::type>(value);
 }
 
-// The number of characters to store in the MemoryBuffer object itself
+// The number of characters to store in the basic_memory_buffer object itself
 // to avoid dynamic memory allocation.
 enum { INLINE_BUFFER_SIZE = 500 };
 
@@ -1034,13 +1034,13 @@ class utf8_to_utf16 {
 
 // A converter from UTF-16 to UTF-8.
 // It is only provided for Windows since other systems support UTF-8 natively.
-class UTF16ToUTF8 {
+class utf16_to_utf8 {
  private:
   memory_buffer buffer_;
 
  public:
-  UTF16ToUTF8() {}
-  FMT_API explicit UTF16ToUTF8(wstring_view s);
+  utf16_to_utf8() {}
+  FMT_API explicit utf16_to_utf8(wstring_view s);
   operator string_view() const { return string_view(&buffer_[0], size()); }
   size_t size() const { return buffer_.size() - 1; }
   const char *c_str() const { return &buffer_[0]; }
@@ -1057,59 +1057,59 @@ FMT_API void format_windows_error(fmt::buffer &out, int error_code,
 #endif
 
 template <typename T = void>
-struct Null {};
+struct null {};
 
 // A helper class template to enable or disable overloads taking wide
 // characters and strings in value's constructor.
 template <typename T, typename Char>
-struct WCharHelper {
-  typedef Null<T> Supported;
-  typedef T Unsupported;
+struct wchar_helper {
+  typedef null<T> supported;
+  typedef T unsupported;
 };
 
 template <typename T>
-struct WCharHelper<T, wchar_t> {
-  typedef T Supported;
-  typedef Null<T> Unsupported;
+struct wchar_helper<T, wchar_t> {
+  typedef T supported;
+  typedef null<T> unsupported;
 };
 
-typedef char Yes[1];
-typedef char No[2];
+typedef char yes[1];
+typedef char no[2];
 
 template <typename T>
 T &get();
 
-// These are non-members to workaround an overload resolution bug in bcc32.
-Yes &convert(fmt::ulong_long);
-No &convert(...);
+yes &convert(fmt::ulong_long);
+no &convert(...);
 
 template<typename T, bool ENABLE_CONVERSION>
-struct ConvertToIntImpl {
+struct convert_to_int_impl {
   enum { value = ENABLE_CONVERSION };
 };
 
 template<typename T, bool ENABLE_CONVERSION>
-struct ConvertToIntImpl2 {
+struct convert_to_int_impl2 {
   enum { value = false };
 };
 
 template<typename T>
-struct ConvertToIntImpl2<T, true> {
+struct convert_to_int_impl2<T, true> {
   enum {
     // Don't convert numeric types.
-    value = ConvertToIntImpl<T, !std::numeric_limits<T>::is_specialized>::value
+    value = convert_to_int_impl<
+      T, !std::numeric_limits<T>::is_specialized>::value
   };
 };
 
 template<typename T>
-struct ConvertToInt {
-  enum { enable_conversion = sizeof(convert(get<T>())) == sizeof(Yes) };
-  enum { value = ConvertToIntImpl2<T, enable_conversion>::value };
+struct convert_to_int {
+  enum { enable_conversion = sizeof(convert(get<T>())) == sizeof(yes) };
+  enum { value = convert_to_int_impl2<T, enable_conversion>::value };
 };
 
 #define FMT_DISABLE_CONVERSION_TO_INT(Type) \
   template <> \
-  struct ConvertToInt<Type> { enum { value = 0 }; }
+  struct convert_to_int<Type> { enum { value = 0 }; }
 
 // Silence warnings about convering float to int.
 FMT_DISABLE_CONVERSION_TO_INT(float);
@@ -1141,18 +1141,18 @@ struct custom_value {
 };
 
 template <typename Char>
-struct NamedArg;
+struct named_arg;
 
 template <typename T>
-struct IsNamedArg : std::false_type {};
+struct is_named_arg : std::false_type {};
 
 template <typename Char>
-struct IsNamedArg< NamedArg<Char> > : std::true_type {};
+struct is_named_arg< named_arg<Char> > : std::true_type {};
 
 template <typename T>
 constexpr Type gettype() {
-  return IsNamedArg<T>::value ?
-        NAMED_ARG : (ConvertToInt<T>::value ? INT : CUSTOM);
+  return is_named_arg<T>::value ?
+        NAMED_ARG : (convert_to_int<T>::value ? INT : CUSTOM);
 }
 
 template <> constexpr Type gettype<bool>() { return BOOL; }
@@ -1236,12 +1236,12 @@ class value {
   //   fmt::format("{}", L"test");
   // To fix this, use a wide format string: fmt::format(L"{}", L"test").
 #if !FMT_MSC_VER || defined(_NATIVE_WCHAR_T_DEFINED)
-  value(typename WCharHelper<wchar_t, Char>::Unsupported);
+  value(typename wchar_helper<wchar_t, Char>::unsupported);
 #endif
-  value(typename WCharHelper<wchar_t *, Char>::Unsupported);
-  value(typename WCharHelper<const wchar_t *, Char>::Unsupported);
-  value(typename WCharHelper<const std::wstring &, Char>::Unsupported);
-  value(typename WCharHelper<wstring_view, Char>::Unsupported);
+  value(typename wchar_helper<wchar_t *, Char>::unsupported);
+  value(typename wchar_helper<const wchar_t *, Char>::unsupported);
+  value(typename wchar_helper<const std::wstring &, Char>::unsupported);
+  value(typename wchar_helper<wstring_view, Char>::unsupported);
 
   void set_string(string_view str) {
     this->string.value = str.data();
@@ -1305,7 +1305,7 @@ class value {
   FMT_MAKE_VALUE(char, int_value, CHAR)
 
 #if !defined(_MSC_VER) || defined(_NATIVE_WCHAR_T_DEFINED)
-  typedef typename WCharHelper<wchar_t, Char>::Supported WChar;
+  typedef typename wchar_helper<wchar_t, Char>::supported WChar;
   value(WChar value) {
     static_assert(internal::type<WChar>() == internal::CHAR, "invalid type");
     this->int_value = value;
@@ -1329,7 +1329,7 @@ class value {
   FMT_MAKE_VALUE_(CStringRef, string.value, CSTRING, value.c_str())
 
 #define FMT_MAKE_WSTR_VALUE(Type, TYPE) \
-  value(typename WCharHelper<Type, Char>::Supported value) { \
+  value(typename wchar_helper<Type, Char>::supported value) { \
     static_assert(internal::type<Type>() == internal::TYPE, "invalid type"); \
     set_string(value); \
   }
@@ -1344,7 +1344,7 @@ class value {
 
   template <typename T>
   value(const T &value,
-        typename enable_if<!ConvertToInt<T>::value, int>::type = 0) {
+        typename enable_if<!convert_to_int<T>::value, int>::type = 0) {
     static_assert(internal::type<T>() == internal::CUSTOM, "invalid type");
     this->custom.value = &value;
     this->custom.format = &format_custom_arg<T>;
@@ -1352,7 +1352,7 @@ class value {
 
   template <typename T>
   value(const T &value,
-        typename enable_if<ConvertToInt<T>::value, int>::type = 0) {
+        typename enable_if<convert_to_int<T>::value, int>::type = 0) {
     static_assert(internal::type<T>() == internal::INT, "invalid type");
     this->int_value = value;
   }
@@ -1360,16 +1360,16 @@ class value {
   // Additional template param `Char_` is needed here because make_type always
   // uses char.
   template <typename Char_>
-  value(const NamedArg<Char_> &value) {
+  value(const named_arg<Char_> &value) {
     static_assert(
-      internal::type<const NamedArg<Char_> &>() == internal::NAMED_ARG,
+      internal::type<const named_arg<Char_> &>() == internal::NAMED_ARG,
       "invalid type");
     this->pointer = &value;
   }
 };
 
 template <typename Context>
-class ArgMap;
+class arg_map;
 
 template <typename Context, typename T>
 basic_arg<Context> make_arg(const T &value);
@@ -1381,7 +1381,7 @@ template <typename Context>
 class basic_args;
 
 // A formatting argument. It is a trivially copyable/constructible type to
-// allow storage in internal::MemoryBuffer.
+// allow storage in basic_memory_buffer.
 template <typename Context>
 class basic_arg {
  private:
@@ -1396,7 +1396,7 @@ class basic_arg {
     visit(Visitor &&vis, basic_arg<Ctx> arg);
 
   friend class basic_args<Context>;
-  friend class internal::ArgMap<Context>;
+  friend class internal::arg_map<Context>;
 
  public:
   basic_arg() : type_(internal::NONE) {}
@@ -1476,8 +1476,8 @@ basic_arg<Context> make_arg(const T &value) {
   return arg;
 }
 
-template <typename T, T> struct LConvCheck {
-  LConvCheck(int) {}
+template <typename T, T> struct lconv_check {
+  lconv_check(int) {}
 };
 
 // Returns the thousands separator for the current locale.
@@ -1485,7 +1485,7 @@ template <typename T, T> struct LConvCheck {
 // ``lconv`` is stubbed as an empty struct.
 template <typename LConv>
 inline string_view thousands_sep(
-    LConv *lc, LConvCheck<char *LConv::*, &LConv::thousands_sep> = 0) {
+    LConv *lc, lconv_check<char *LConv::*, &LConv::thousands_sep> = 0) {
   return lc->thousands_sep;
 }
 
@@ -1521,20 +1521,14 @@ void format_value(basic_buffer<Char> &, const T &, Formatter &, const Char *) {
 }
 
 template <typename Context>
-struct NamedArg : basic_arg<Context> {
+struct named_arg : basic_arg<Context> {
   typedef typename Context::char_type Char;
 
   basic_string_view<Char> name;
 
   template <typename T>
-  NamedArg(basic_string_view<Char> argname, const T &value)
+  named_arg(basic_string_view<Char> argname, const T &value)
   : basic_arg<Context>(make_arg<Context>(value)), name(argname) {}
-};
-
-class RuntimeError : public std::runtime_error {
- protected:
-  RuntimeError() : std::runtime_error("") {}
-  ~RuntimeError() throw();
 };
 
 template <typename Arg, typename... Args>
@@ -1625,7 +1619,7 @@ class basic_args {
       (types_ & (mask << shift)) >> shift);
   }
 
-  friend class internal::ArgMap<Context>;
+  friend class internal::arg_map<Context>;
 
   void set_data(const internal::value<Context> *values) { values_ = values; }
   void set_data(const format_arg *args) { args_ = args; }
@@ -1832,7 +1826,7 @@ typedef basic_format_specs<char> format_specs;
 namespace internal {
 
 template <typename Context>
-class ArgMap {
+class arg_map {
  private:
   typedef typename Context::char_type Char;
   typedef std::vector<
@@ -1857,10 +1851,10 @@ class ArgMap {
 };
 
 template <typename Context>
-void ArgMap<Context>::init(const basic_args<Context> &args) {
+void arg_map<Context>::init(const basic_args<Context> &args) {
   if (!map_.empty())
     return;
-  typedef internal::NamedArg<Context> NamedArg;
+  typedef internal::named_arg<Context> NamedArg;
   const NamedArg *named_arg = 0;
   bool use_values =
   args.type(MAX_PACKED_ARGS - 1) == internal::NONE;
@@ -2115,7 +2109,7 @@ class basic_context :
   typedef Char char_type;
 
  private:
-  internal::ArgMap<basic_context<Char>> map_;
+  internal::arg_map<basic_context<Char>> map_;
 
   FMT_DISALLOW_COPY_AND_ASSIGN(basic_context);
 
@@ -2149,14 +2143,14 @@ class basic_context :
  An error returned by an operating system or a language runtime,
  for example a file opening error.
 */
-class SystemError : public internal::RuntimeError {
+class SystemError : public std::runtime_error {
  private:
   void init(int err_code, CStringRef format_str, args args);
 
  protected:
   int error_code_;
 
-  SystemError() {}
+  SystemError() : std::runtime_error("") {}
 
  public:
   /**
@@ -2178,7 +2172,8 @@ class SystemError : public internal::RuntimeError {
    \endrst
   */
   template <typename... Args>
-  SystemError(int error_code, CStringRef message, const Args & ... args) {
+  SystemError(int error_code, CStringRef message, const Args & ... args)
+    : std::runtime_error("") {
     init(error_code, message, make_args(args...));
   }
 
@@ -2322,9 +2317,9 @@ class basic_writer {
   // and strings to a char buffer. If you want to print a wide string as a
   // pointer as std::ostream does, cast it to const void*.
   // Do not implement!
-  void operator<<(typename internal::WCharHelper<wchar_t, Char>::Unsupported);
+  void operator<<(typename internal::wchar_helper<wchar_t, Char>::unsupported);
   void operator<<(
-      typename internal::WCharHelper<const wchar_t *, Char>::Unsupported);
+      typename internal::wchar_helper<const wchar_t *, Char>::unsupported);
 
   // Appends floating-point length specifier to the format string.
   // The second argument is only used for overload resolution.
@@ -2427,7 +2422,7 @@ class basic_writer {
     buffer_.push_back(value);
   }
 
-  void write(typename internal::WCharHelper<wchar_t, Char>::Supported value) {
+  void write(typename internal::wchar_helper<wchar_t, Char>::supported value) {
     buffer_.push_back(value);
   }
 
@@ -2442,7 +2437,7 @@ class basic_writer {
   }
 
   void write(
-      typename internal::WCharHelper<string_view, Char>::Supported value) {
+      typename internal::wchar_helper<string_view, Char>::supported value) {
     const char *str = value.data();
     buffer_.append(str, str + value.size());
   }
@@ -3098,22 +3093,22 @@ inline void format_decimal(char *&buffer, T value) {
   \endrst
  */
 template <typename T>
-inline internal::NamedArg<context> arg(string_view name, const T &arg) {
-  return internal::NamedArg<context>(name, arg);
+inline internal::named_arg<context> arg(string_view name, const T &arg) {
+  return internal::named_arg<context>(name, arg);
 }
 
 template <typename T>
-inline internal::NamedArg<wcontext> arg(wstring_view name, const T &arg) {
-  return internal::NamedArg<wcontext>(name, arg);
+inline internal::named_arg<wcontext> arg(wstring_view name, const T &arg) {
+  return internal::named_arg<wcontext>(name, arg);
 }
 
 // The following two functions are deleted intentionally to disable
 // nested named arguments as in ``format("{}", arg("a", arg("b", 42)))``.
 template <typename Context>
-void arg(string_view, const internal::NamedArg<Context>&)
+void arg(string_view, const internal::named_arg<Context>&)
   FMT_DELETED_OR_UNDEFINED;
 template <typename Context>
-void arg(wstring_view, const internal::NamedArg<Context>&)
+void arg(wstring_view, const internal::named_arg<Context>&)
   FMT_DELETED_OR_UNDEFINED;
 }
 
@@ -3463,7 +3458,7 @@ struct UdlArg {
   const Char *str;
 
   template <typename T>
-  NamedArg<basic_context<Char>> operator=(T &&value) const {
+  named_arg<basic_context<Char>> operator=(T &&value) const {
     return {str, std::forward<T>(value)};
   }
 };

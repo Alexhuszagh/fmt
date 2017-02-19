@@ -70,16 +70,15 @@
 
 // Dummy implementations of strerror_r and strerror_s called if corresponding
 // system functions are not available.
-static inline fmt::internal::Null<> strerror_r(int, char *, ...) {
-  return fmt::internal::Null<>();
+static inline fmt::internal::null<> strerror_r(int, char *, ...) {
+  return fmt::internal::null<>();
 }
-static inline fmt::internal::Null<> strerror_s(char *, std::size_t, ...) {
-  return fmt::internal::Null<>();
+static inline fmt::internal::null<> strerror_s(char *, std::size_t, ...) {
+  return fmt::internal::null<>();
 }
 
 namespace fmt {
 
-FMT_FUNC internal::RuntimeError::~RuntimeError() throw() {}
 FMT_FUNC format_error::~format_error() throw() {}
 FMT_FUNC SystemError::~SystemError() throw() {}
 
@@ -146,7 +145,7 @@ int safe_strerror(
     }
 
     // Handle the case when strerror_r is not available.
-    int handle(internal::Null<>) {
+    int handle(internal::null<>) {
       return fallback(strerror_s(buffer_, buffer_size_, error_code_));
     }
 
@@ -158,7 +157,7 @@ int safe_strerror(
     }
 
     // Fallback to strerror if strerror_r and strerror_s are not available.
-    int fallback(internal::Null<>) {
+    int fallback(internal::null<>) {
       errno = 0;
       buffer_ = strerror(error_code_);
       return errno;
@@ -315,14 +314,14 @@ FMT_FUNC internal::utf8_to_utf16::utf8_to_utf16(string_view s) {
   buffer_[length] = 0;
 }
 
-FMT_FUNC internal::UTF16ToUTF8::UTF16ToUTF8(wstring_view s) {
+FMT_FUNC internal::utf16_to_utf8::utf16_to_utf8(wstring_view s) {
   if (int error_code = convert(s)) {
     FMT_THROW(WindowsError(error_code,
         "cannot convert string from UTF-16 to UTF-8"));
   }
 }
 
-FMT_FUNC int internal::UTF16ToUTF8::convert(wstring_view s) {
+FMT_FUNC int internal::utf16_to_utf8::convert(wstring_view s) {
   if (s.size() > INT_MAX)
     return ERROR_INVALID_PARAMETER;
   int s_size = static_cast<int>(s.size());
@@ -359,7 +358,7 @@ FMT_FUNC void internal::format_windows_error(
           0, error_code, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
           system_message, static_cast<uint32_t>(buffer.size()), 0);
       if (result != 0) {
-        UTF16ToUTF8 utf8_message;
+        utf16_to_utf8 utf8_message;
         if (utf8_message.convert(system_message) == ERROR_SUCCESS) {
           basic_writer<char> w(out);
           w.write(message);
@@ -459,7 +458,7 @@ template struct internal::basic_data<void>;
 
 template void basic_fixed_buffer<char>::grow(std::size_t);
 
-template void internal::ArgMap<context>::init(const args &args);
+template void internal::arg_map<context>::init(const args &args);
 
 template void printf_context<char>::format(buffer &);
 
@@ -477,7 +476,7 @@ template class basic_context<wchar_t>;
 
 template void basic_fixed_buffer<wchar_t>::grow(std::size_t);
 
-template void internal::ArgMap<wcontext>::init(const wargs &args);
+template void internal::arg_map<wcontext>::init(const wargs &args);
 
 template void printf_context<wchar_t>::format(wbuffer &);
 
